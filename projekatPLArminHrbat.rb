@@ -16,9 +16,11 @@ class ForInARow
           @columns = @board.length
           @move_counter = 0
           @current_player = 1
-          @total_moves = 0
+          @total_moves =  @rows*@columns
           @playeronemoves = Array.new()
           @playertwomoves = Array.new()
+      elsif game === "load" #Load existing game from file "saved_game.txt"
+        load_game()
       else
           raise ArgumentError, "Invalid game: #{game}"       
       end
@@ -39,7 +41,7 @@ class ForInARow
         puts "Invalid board dimensions. Please try again."
         gets.chomp # Pause for user to read the message
     
-        system("clear") || system("cls") # Clear the console screen
+        system("clear") || system("cls") 
     
         print 'Enter board height (min 6): '
         rows = gets.chomp.to_i
@@ -87,14 +89,20 @@ class ForInARow
   
     while (@move_counter < @rows * @columns) do
       @move_counter = @move_counter + 1
-      @total_moves += 1
   
       print_board()
       print " Now, Player: "+@current_player.to_s+" should take a move -> "
   
       while true 
         input = gets.chomp.downcase
+        if input == 'save' # if user enters save at any moment the function for saving game will be called
+          File.delete("saved_game.txt") if File.exist?("saved_game.txt")
+          save_game()
+          #print " Now, Player: "+@current_player.to_s+" should take a move -> "
+          #next
+        else
         selected_column = input.to_i - 1
+        end
         if (selected_column.to_i >= 0 && selected_column.to_i < @columns)
           if(!full_column?(selected_column))
             update_column(selected_column, @current_player)
@@ -110,16 +118,18 @@ class ForInARow
       end
   
       if win_condition()
-        puts "\e[H\e[2J"
+        puts "\e[H\e[2J" #Clear display
         print_board()
         puts ("Player #{@current_player} wins!")
         break 
       end
 
-      if (@current_player == 1)
-        @playeronemoves.append(selected_column + 1)
-      else
-        @playertwomoves.append(selected_column + 1)
+      if input != 'save'  # Only append to move history if it's not "save"
+        if (@current_player == 1)
+          @playeronemoves.append(selected_column + 1)
+        else
+          @playertwomoves.append(selected_column + 1)
+        end
       end
   
       if @current_player == 1
@@ -131,7 +141,7 @@ class ForInARow
   
     
 
-    if (@total_moves == @rows * @columns)
+    if (@move_counter == @total_moves)
       puts "\e[H\e[2J"
       print_board()
       puts ("The game is a draw! GGWP")
@@ -224,14 +234,72 @@ class ForInARow
            @board[col + 2][row + 1] == @current_player &&
            @board[col + 3][row] == @current_player
   end
+
+  def save_game()
+    File.open("saved_game.txt", 'w') do |file|
+      file.puts(
+        @playeronemoves.join(',') + "|" +
+        @playertwomoves.join(',') + "|" + 
+        @rows.to_s + "|" + 
+        @columns.to_s + "|" + 
+        @current_player.to_s + "|" + 
+        @move_counter.to_s + "|" +
+        @total_moves.to_s)
+
+    end
+    puts 'Game saved successfully!'
+    exit
+  end
+  
+  def load_game()
+    file = File.open('saved_game.txt')
+    read_arrays = file.read.split('|')
+    @playeronemoves = read_arrays[0].tr('[]', '').split(',').map(&:to_i)
+    #puts @playeronemoves.to_s
+    @playertwomoves = read_arrays[1].tr('[]', '').split(',').map(&:to_i)
+    #puts @playertwomoves.to_s
+    @rows = read_arrays[2].to_i
+    #puts @rows
+    @columns = read_arrays[3].to_i
+    #puts @columns
+    @current_player = read_arrays[4].to_i
+    # puts @current_player
+    @move_counter = read_arrays[5].to_i
+   
+    @total_moves = read_arrays[6].to_i
+    puts @total_moves
+    @board = Array.new(@columns) { Array.new(@rows) { 0 } }
+    
+    i = 0
+    while i < @playeronemoves.length
+      update_column(@playeronemoves[i]-1, 1)
+      break if (@playertwomoves[i]-1).nil?
+
+      update_column(@playertwomoves[i]-1, 2)
+
+      i += 1
+    end
+    puts @board.to_s
+  end
+  
+  
     
 end
 
+
 while true
-  board1=ForInARow.new("new")
-  board1.play()
-  puts("Do you want to play again? yes/anything else for no")
-  if(gets.chomp.downcase != "yes")
+  puts("Do you want to load game?")
+  input = gets.chomp.downcase
+  if(input == "yes")
+    board1 = ForInARow.new("load")
+    board1.play()
     break
+  else
+    board1 = ForInARow.new("new")
+    board1.play()
+  end
+  puts("Do you want to play again? yes/anything else for no")
+  if gets.chomp.downcase != "yes"
+    break  
   end
 end
